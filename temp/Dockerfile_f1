@@ -1,0 +1,13 @@
+FROM tomcat7-jdk7-base:1.0
+
+LABEL app="f1-flex"
+
+# ---------- 可覆盖 JVM 参数 ----------
+ENV JAVA_OPTS="-server -Xms512m -Xmx1024m -XX:MaxPermSize=256m -Dfile.encoding=UTF-8"
+
+
+# ---------- 拷贝 WAR ----------
+COPY f1-flex-war.war /usr/local/tomcat/webapps/f1-flex-war.war
+
+# ---------- 默认启动（调试友好） ----------
+CMD ["catalina.sh", "jpda", "run"]

@@ -1,0 +1,43 @@
+FROM quay.io/centos/centos:7
+
+LABEL maintainer="jdk7-zulu"
+
+# ---------- 基础环境 ----------
+ENV LANG=zh_CN.UTF-8 \
+    LC_ALL=zh_CN.UTF-8 \
+    TZ=Asia/Shanghai \
+    JAVA_HOME=/opt/jdk7 \
+    PATH=/opt/jdk7/bin:$PATH
+
+# ---------- 修复 CentOS 7 yum 源（关键） ----------
+RUN sed -i 's|mirrorlist=|#mirrorlist=|g' /etc/yum.repos.d/CentOS-Base.repo && \
+    sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-Base.repo
+
+# ---------- 安装基础依赖 ----------
+RUN yum clean all && \
+    yum makecache && \
+    yum install -y \
+        fontconfig \
+        freetype \
+        tzdata \
+        wget \
+        which \
+        unzip \
+    && yum clean all
+
+# ---------- 设置时区 ----------
+RUN ln -sf /usr/share/zoneinfo/${TZ} /etc/localtime && \
+    echo "${TZ}" > /etc/timezone
+
+# ---------- 设置中文 ----------
+RUN localedef -c -f UTF-8 -i zh_CN zh_CN.UTF-8 || true
+
+# ---------- 安装 Azul Zulu JDK7 ----------
+COPY jdk/zulu7.56.0.11-ca-jdk7.0.352-linux_x64.tar.gz /opt/
+
+RUN tar -zxf /opt/zulu7.56.0.11-ca-jdk7.0.352-linux_x64.tar.gz -C /opt && \
+    ln -s /opt/zulu7.56.0.11-ca-jdk7.0.352-linux_x64 /opt/jdk7 && \
+    rm -f /opt/zulu7.56.0.11-ca-jdk7.0.352-linux_x64.tar.gz
+
+# ---------- 验证 ----------
+RUN java -version
