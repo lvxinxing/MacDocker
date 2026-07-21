@@ -1,0 +1,6 @@
+*
+!server
+!server/flex
+!server/flex/war
+!server/flex/war/target
+!server/flex/war/target/bdc-flex-war.war
