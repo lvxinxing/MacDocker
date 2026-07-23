@@ -24,6 +24,12 @@ JPDA_PORT=5009
 
 脚本不会额外指定 `-Dmaven.repo.local`，本地仓库路径由 `/Users/paul/.m2/settings.xml` 里的配置决定。
 
+启动完成后可用下面命令验证服务是否正常：
+
+```bash
+curl -v "http://localhost:8084/bdc-flex-war/web/api/accountingInterval/get/68255"
+```
+
 如果要临时使用别的端口或容器名：
 
 ```bash

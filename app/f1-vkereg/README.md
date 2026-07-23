@@ -24,6 +24,12 @@ JPDA_PORT=5010
 
 脚本不会额外指定 `-Dmaven.repo.local`，本地仓库路径由 `/Users/paul/.m2/settings.xml` 里的配置决定。
 
+启动完成后可用下面命令验证服务是否正常：
+
+```bash
+curl -v "http://localhost:8085/f1-flex-war/web/api/supplierPaymentRequest/getPaymentRequest?id=100"
+```
+
 f1 的 `server/flex/war/pom.xml` 使用了旧版 `maven-antrun-plugin` 的 `<tasks>` 写法，所以脚本默认使用 Maven 3.2.5。不要直接用 Homebrew Maven 3.9.x 编译，否则可能解析到 `maven-antrun-plugin:3.1.0` 并报 `tasks has been removed`。
 
 WAR 包里可能因为 `org.springframework:org.springframework.transaction:3.2.1.RELEASE` 传递依赖混入旧命名 Spring jar，例如 `org.springframework.core-3.2.1.RELEASE.jar`。它会和项目主版本 `spring-core-3.2.18.RELEASE.jar` 冲突，导致 Tomcat 启动时报 `ClassUtils.determineCommonAncestor` 的 `NoSuchMethodError`。脚本会在 Maven 编译后自动从 WAR 中删除这些旧命名 Spring 3.2.1 jar。

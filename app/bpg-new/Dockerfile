@@ -21,6 +21,6 @@ ENV JPDA_TRANSPORT=dt_socket
 # CMD 命令：先编译，然后将 WAR 文件复制到 Tomcat 中并运行
 CMD ["bash", "-c", "\
   mvn -s /root/.m2/settings.xml clean package -DskipTests && \
-  cp bpg-new/target/*.war /usr/local/tomcat/webapps/ROOT.war && \
+  cp bpg-new/target/*.war /usr/local/tomcat/webapps/bpg-new.war && \
   /usr/local/tomcat/bin/catalina.sh jpda run \
 "]

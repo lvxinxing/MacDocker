@@ -2,6 +2,7 @@
 set -euo pipefail
 
 PROJECT_DIR="${BPG_PROJECT_DIR:-/Users/paul/Documents/java/IdeaProjects/bpg/bpg-new}"
+WSROOT_DIR="${BPG_WSROOT_DIR:-$(cd "${PROJECT_DIR}/../wsroot" 2>/dev/null && pwd || true)}"
 DOCKER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCKERS_DIR="$(cd "${DOCKER_DIR}/../.." && pwd)"
 
@@ -14,9 +15,8 @@ MAVEN_VERSION="${MAVEN_VERSION:-3.2.5}"
 MAVEN_CACHE_DIR="${MAVEN_CACHE_DIR:-/private/tmp/bpg-local-maven}"
 DEPLOY_DIR="${BPG_DEPLOY_DIR:-/Users/paul/Documents/java/Data/deploy}"
 CONTAINER_DEPLOY_DIR="${BPG_CONTAINER_DEPLOY_DIR:-/Users/paul/Documents/java/Data/deploy}"
-SOCKET_TIMEOUT_MILLIS="${SOCKET_TIMEOUT_MILLIS:-3000}"
-CMB_TIMEOUT_MILLIS="${CMB_TIMEOUT_MILLIS:-3000}"
-UNIONPAY_LOGIN_ON_STARTUP="${UNIONPAY_LOGIN_ON_STARTUP:-false}"
+SKIP_WSROOT_INSTALL="${SKIP_WSROOT_INSTALL:-false}"
+STOP_TIMEOUT_SECONDS="${STOP_TIMEOUT_SECONDS:-30}"
 
 detect_java_home() {
   if [[ -n "${BPG_JAVA_HOME:-}" ]]; then
@@ -115,28 +115,47 @@ if [[ ! -f "${SETTINGS_FILE}" ]]; then
   exit 1
 fi
 
+if [[ "${SKIP_WSROOT_INSTALL}" != "true" ]]; then
+  if [[ -z "${WSROOT_DIR}" || ! -f "${WSROOT_DIR}/pom.xml" ]]; then
+    echo "wsroot module was not found. Set BPG_WSROOT_DIR to the wsroot project directory," >&2
+    echo "or set SKIP_WSROOT_INSTALL=true if bpg-webServiceRoot is already installed locally." >&2
+    exit 1
+  fi
+fi
+
 check_deploy_dir
 
 export JAVA_HOME="${JAVA_HOME_FOR_BUILD}"
 export PATH="${JAVA_HOME}/bin:${PATH}"
-
-cd "${PROJECT_DIR}"
 
 echo "Using JAVA_HOME=${JAVA_HOME}"
 java -version
 echo "Using Maven=$("${MAVEN_BIN}" -version | head -1)"
 echo "Using settings=${SETTINGS_FILE}"
 echo "Using deploy files=${DEPLOY_DIR} -> ${CONTAINER_DEPLOY_DIR}"
-echo "Using socket.timeout=${SOCKET_TIMEOUT_MILLIS}"
-echo "Using cmb.config.timeout.millis=${CMB_TIMEOUT_MILLIS}"
-echo "Using unionpay.login.on.startup=${UNIONPAY_LOGIN_ON_STARTUP}"
+echo "Using stop timeout=${STOP_TIMEOUT_SECONDS}s"
 
+# bpg-new depends on oasis:bpg-webServiceRoot from the local Maven repo.
+# IDEA compiles against the wsroot module source; Maven does not, so install
+# the latest wsroot first to avoid stale enum/class symbols.
+if [[ "${SKIP_WSROOT_INSTALL}" != "true" ]]; then
+  echo "Installing wsroot from ${WSROOT_DIR}"
+  (
+    cd "${WSROOT_DIR}"
+    "${MAVEN_BIN}" clean install \
+      -s "${SETTINGS_FILE}" \
+      -Dmaven.test.skip=true
+  )
+else
+  echo "Skipping wsroot install (SKIP_WSROOT_INSTALL=true)"
+fi
+
+cd "${PROJECT_DIR}"
+
+echo "Building bpg-new from ${PROJECT_DIR}"
 "${MAVEN_BIN}" clean install \
   -s "${SETTINGS_FILE}" \
   -Dmaven.test.skip=true \
-  -Dsocket.timeout="${SOCKET_TIMEOUT_MILLIS}" \
-  -Dcmb.config.timeout.millis="${CMB_TIMEOUT_MILLIS}" \
-  -Dunionpay.login.on.startup="${UNIONPAY_LOGIN_ON_STARTUP}" \
   -PdevProfile
 
 docker build \
@@ -145,7 +164,11 @@ docker build \
   -t "${IMAGE_NAME}" \
   "${PROJECT_DIR}"
 
-docker rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+if docker container inspect "${CONTAINER_NAME}" >/dev/null 2>&1; then
+  echo "Stopping existing container ${CONTAINER_NAME} (timeout ${STOP_TIMEOUT_SECONDS}s)"
+  docker stop -t "${STOP_TIMEOUT_SECONDS}" "${CONTAINER_NAME}" >/dev/null || true
+  docker rm "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+fi
 
 docker run -d \
   --name "${CONTAINER_NAME}" \
