@@ -1,0 +1,4 @@
+*
+!tax-server
+!tax-server/target
+!tax-server/target/tax-server.jar
